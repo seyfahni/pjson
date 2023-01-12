@@ -14,6 +14,7 @@ use Square\Pjson\Tests\Definitions\Category;
 use Square\Pjson\Tests\Definitions\MenuList;
 use Square\Pjson\Tests\Definitions\Schedule;
 use Square\Pjson\Tests\Definitions\Privateer;
+use Square\Pjson\Tests\Definitions\Token;
 use Square\Pjson\Tests\Definitions\Stats;
 use Square\Pjson\Tests\Definitions\Traitor;
 use Square\Pjson\Tests\Definitions\Weekend;
@@ -473,5 +474,28 @@ final class DeSerializationTest extends TestCase
             "@class" => MenuList::class,
             "mainMenuName" => "main-menu"
         ], $this->export($dl));
+    }
+
+    public function testRequiredProperty()
+    {
+        $json = '{
+            "key": "my_key"
+        }';
+
+        $token = Token::fromJsonString($json);
+
+        $this->assertEquals([
+            "@class" => Token::class,
+            "key" => "my_key",
+        ], $this->export($token));
+    }
+
+    public function testRequiredPropertyMissing()
+    {
+        $json = '{}';
+
+        $this->expectException(\Exception::class);
+
+        Token::fromJsonString($json);
     }
 }

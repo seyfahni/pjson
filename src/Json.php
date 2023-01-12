@@ -16,8 +16,14 @@ class Json
 
     protected bool $omit_empty;
 
-    public function __construct(string|array $path = '', string $type = '', bool $omit_empty = false)
-    {
+    protected bool $required;
+
+    public function __construct(
+        string|array $path = '',
+        string $type = '',
+        bool $omit_empty = false,
+        bool $required = false
+    ) {
         if ($path !== '') {
             if (is_string($path)) {
                 $path = [$path];
@@ -30,6 +36,7 @@ class Json
         }
 
         $this->omit_empty = $omit_empty;
+        $this->required = $required;
     }
 
     /**
@@ -53,7 +60,7 @@ class Json
     {
         foreach ($this->path as $pathBit) {
             if (!array_key_exists($pathBit, $data)) {
-                return ;
+                return $this->handleMissingValue();
             }
             $data = $data[$pathBit];
         }
@@ -88,6 +95,17 @@ class Json
         }
 
         return $data;
+    }
+
+    /**
+     * What happens when deserializing a property that isn't set.
+     */
+    protected function handleMissingValue()
+    {
+        if ($this->required) {
+            throw new \Exception('missing required value: '.json_encode($this->path));
+        }
+        return null;
     }
 
     /**
