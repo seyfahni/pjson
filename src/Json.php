@@ -84,7 +84,7 @@ class Json
     protected function handleMissingValue()
     {
         if ($this->required) {
-            throw new \Exception('missing required value: '.json_encode($this->path));
+            throw new PjsonException('missing required value: '.json_encode($this->path));
         }
         return null;
     }
@@ -102,7 +102,7 @@ class Json
         if (isset($this->type)) {
             return $this->retrieveConfiguredType($data);
         }
-        throw new \Exception('union types are not supported: '.$type);
+        throw new PjsonTypeException('union types are not supported: '.$type);
     }
 
     protected function retrieveConfiguredType($data)
@@ -141,7 +141,7 @@ class Json
 
     public function handleInvalidType(\TypeError $typeError, ?ReflectionType $type, $value)
     {
-        throw new \Exception(
+        throw new PjsonTypeException(
             sprintf(
                 "incorrectly typed value received; expected %s but got %s: %s",
                 $type ?? 'any type', get_debug_type($value), json_encode($this->path)),
@@ -181,7 +181,7 @@ class Json
         $d = &$data;
         foreach ($this->path as $i => $pathBit) {
             if (array_key_exists($pathBit, $d) && $i === $max) {
-                throw new \Exception('invalid path: '.json_encode($this->path));
+                throw new PjsonException('invalid path: '.json_encode($this->path));
             }
 
             if (!array_key_exists($pathBit, $d) && $i < $max) {
