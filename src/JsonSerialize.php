@@ -95,15 +95,20 @@ trait JsonSerialize
             if (empty($attrs)) {
                 continue;
             }
-            $a = $attrs[0];
 
             $type = $prop->getType();
-            $v = $a->newInstance()->forProperty($prop)->retrieveValue($jd, $type);
+            /** @var Json $attribute */
+            $attribute = $attrs[0]->newInstance()->forProperty($prop);
+            $v = $attribute->retrieveValue($jd, $type);
             if (is_null($v) && $type && !$type->allowsNull()) {
                 continue;
             }
 
-            $prop->setValue($return, $v);
+            try {
+                $prop->setValue($return, $v);
+            } catch (\TypeError $typeError) {
+                $attribute->handleInvalidType( $typeError, $type, $v);
+            }
         }
         return $return;
     }

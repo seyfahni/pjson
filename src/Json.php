@@ -4,6 +4,8 @@ namespace Square\Pjson;
 use Attribute;
 use ReflectionNamedType;
 use ReflectionProperty;
+use ReflectionType;
+use ReflectionUnionType;
 use Square\Pjson\Internal\RClass;
 use stdClass;
 
@@ -56,7 +58,7 @@ class Json
     /**
      * Builds the PHP value from the json data and a type if available
      */
-    public function retrieveValue(array $data, ?ReflectionNamedType $type = null)
+    public function retrieveValue(array $data, ReflectionNamedType|ReflectionUnionType|null $type = null)
     {
         foreach ($this->path as $pathBit) {
             if (!array_key_exists($pathBit, $data)) {
@@ -65,22 +67,62 @@ class Json
             $data = $data[$pathBit];
         }
 
-        if ($type === null) {
-            if (isset($this->type)) {
-                $t = $this->type;
-                return $t::fromJsonData($data);
-            }
-            return $data;
+        if ($type instanceof ReflectionUnionType) {
+            return $this->retrieveUnionType($data, $type);
         }
 
+        if ($type instanceof ReflectionNamedType) {
+            return $this->retrieveNamedType($data, $type);
+        }
+
+        return $this->retrieveUntyped($data);
+    }
+
+    /**
+     * What happens when deserializing a property that isn't set.
+     */
+    protected function handleMissingValue()
+    {
+        if ($this->required) {
+            throw new \Exception('missing required value: '.json_encode($this->path));
+        }
+        return null;
+    }
+
+    protected function retrieveUntyped($data)
+    {
+        if (isset($this->type)) {
+            return $this->retrieveConfiguredType($data);
+        }
+        return $data;
+    }
+
+    protected function retrieveUnionType($data, ReflectionUnionType $type)
+    {
+        if (isset($this->type)) {
+            return $this->retrieveConfiguredType($data);
+        }
+        throw new \Exception('union types are not supported: '.$type);
+    }
+
+    protected function retrieveConfiguredType($data)
+    {
+        if (class_exists($this->type)) {
+            $type = $this->type;
+            return $type::fromJsonData($data);
+        }
+        return $data;
+    }
+
+    protected function retrieveNamedType($data, ReflectionNamedType $type)
+    {
         $typename = $type->getName();
 
-        if (!class_exists($typename) && ($typename !== 'array' || !isset($this->type))) {
+        if ($type->isBuiltin()) {
+            if ($typename === 'array' && isset($this->type) && $this->type !== 'array') {
+                return array_map(fn($d) => $this->type::fromJsonData($d), $data);
+            }
             return $data;
-        }
-
-        if (!class_exists($typename) && $typename === 'array' && isset($this->type)) {
-            return array_map(fn ($d) => $this->type::fromJsonData($d), $data);
         }
 
         if (RClass::make($typename)->readsFromJson()) {
@@ -97,15 +139,14 @@ class Json
         return $data;
     }
 
-    /**
-     * What happens when deserializing a property that isn't set.
-     */
-    protected function handleMissingValue()
+    public function handleInvalidType(\TypeError $typeError, ?ReflectionType $type, $value)
     {
-        if ($this->required) {
-            throw new \Exception('missing required value: '.json_encode($this->path));
-        }
-        return null;
+        throw new \Exception(
+            sprintf(
+                "incorrectly typed value received; expected %s but got %s: %s",
+                $type ?? 'any type', get_debug_type($value), json_encode($this->path)),
+            previous: $typeError
+        );
     }
 
     /**

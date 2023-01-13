@@ -11,12 +11,16 @@ use Square\Pjson\Tests\Definitions\CatalogCategory;
 use Square\Pjson\Tests\Definitions\CatalogItem;
 use Square\Pjson\Tests\Definitions\CatalogObject;
 use Square\Pjson\Tests\Definitions\Category;
+use Square\Pjson\Tests\Definitions\Contractor;
 use Square\Pjson\Tests\Definitions\MenuList;
+use Square\Pjson\Tests\Definitions\Primitive;
 use Square\Pjson\Tests\Definitions\Schedule;
 use Square\Pjson\Tests\Definitions\Privateer;
 use Square\Pjson\Tests\Definitions\Token;
 use Square\Pjson\Tests\Definitions\Stats;
 use Square\Pjson\Tests\Definitions\Traitor;
+use Square\Pjson\Tests\Definitions\TypedUnion;
+use Square\Pjson\Tests\Definitions\Union;
 use Square\Pjson\Tests\Definitions\Weekend;
 
 final class DeSerializationTest extends TestCase
@@ -497,5 +501,88 @@ final class DeSerializationTest extends TestCase
         $this->expectException(\Exception::class);
 
         Token::fromJsonString($json);
+    }
+
+    public function testUnionTypeStringGiven()
+    {
+        $json = '{
+            "size": "large"
+        }';
+
+        $this->expectException(\Exception::class);
+
+        Union::fromJsonString($json);
+    }
+
+    public function testUnionTypeIntGiven()
+    {
+        $json = '{
+            "size": 25
+        }';
+
+        $this->expectException(\Exception::class);
+
+        Union::fromJsonString($json);
+    }
+
+    public function testTypeOptionOnUnionType()
+    {
+        $json = '{
+            "member": {
+                "name": "Jane"
+            }
+        }';
+
+        $union = TypedUnion::fromJsonString($json);
+
+        $this->assertEquals([
+            "@class" => TypedUnion::class,
+            "member" => [
+                "@class" => Contractor::class,
+                "name" => "Jane"
+            ],
+        ], $this->export($union));
+    }
+
+    public function testTypedReceivesIncompatible()
+    {
+        $json = '{
+            "name": [
+                "John", "Doe"
+            ]
+        }';
+
+        $this->expectException(\Exception::class);
+
+        Contractor::fromJsonString($json);
+    }
+
+    public function testTypedReceivesConvertable()
+    {
+        $json = '{
+            "name": 7
+        }';
+
+        $contractor = Contractor::fromJsonString($json);
+
+        $this->assertEquals([
+            "@class" => Contractor::class,
+            "name" => "7",
+        ], $this->export($contractor));
+    }
+
+
+    public function testPrimitiveTypenameOnUntypedProperty()
+    {
+        $json = '{
+            "value": "valid"
+        }';
+
+        $primitive = Primitive::fromJsonString($json);
+
+        $this->assertEquals([
+            "@class" => Primitive::class,
+            "value" => "valid",
+        ], $this->export($primitive));
     }
 }
